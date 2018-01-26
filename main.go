@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -20,9 +21,19 @@ func main() {
 
 	problemsFilePath := flag.String("csv", "./problems.csv", "The problems.csv file path.")
 	timeLimitInSeconds := flag.Int("limit", 3000, "The time limit for the quiz.")
+	shuffleProblems := flag.Bool("shuffle", false, "Shuffle quiz order.")
 	flag.Parse()
 	problems := getProblemsFromFile(*problemsFilePath)
 	timeLimit := time.Duration(*timeLimitInSeconds) * time.Second
+
+	if *shuffleProblems {
+		dest := make([]Problem, len(problems))
+		perm := rand.Perm(len(problems))
+		for i, v := range perm {
+			dest[v] = problems[i]
+		}
+		problems = dest
+	}
 
 	score := quiz(problems, timeLimit)
 	fmt.Printf("\nFinal score: %d/%d.", score, len(problems))
