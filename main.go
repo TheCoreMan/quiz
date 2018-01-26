@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -16,8 +17,10 @@ type Problem struct {
 
 func main() {
 	fmt.Println("Welcode to the quiz!")
-	var problems []Problem
-	problems = getProblems(problems)
+
+	problemsFilePath := flag.String("f", "./problems.csv", "The problems.csv file path.")
+	flag.Parse()
+	problems := getProblemsFromFile(*problemsFilePath)
 
 	correctAnswers := 0
 	stdinReader := bufio.NewReader(os.Stdin)
@@ -40,9 +43,9 @@ func main() {
 	fmt.Printf("\nFinal score: %d/%d.", correctAnswers, len(problems))
 }
 
-func getProblems(problems []Problem) []Problem {
-	problemsFilePath := "./problems.csv"
-	// TODO change with flag and use filepath to verify stuff
+func getProblemsFromFile(problemsFilePath string) []Problem {
+	var problems []Problem
+
 	problemsFile, err := os.Open(problemsFilePath)
 	if err != nil {
 		panic(err)
