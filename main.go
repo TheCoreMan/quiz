@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"encoding/csv"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+	"time"
 )
 
 type Problem struct {
@@ -16,31 +16,58 @@ type Problem struct {
 }
 
 func main() {
-	fmt.Println("Welcode to the quiz!")
+	fmt.Println("Welcode to the quiz! Press [Enter] to start.")
 
-	problemsFilePath := flag.String("f", "./problems.csv", "The problems.csv file path.")
+	problemsFilePath := flag.String("csv", "./problems.csv", "The problems.csv file path.")
+	timeLimitInSeconds := flag.Int("limit", 3000, "The time limit for the quiz.")
 	flag.Parse()
 	problems := getProblemsFromFile(*problemsFilePath)
+	timeLimit := time.Duration(*timeLimitInSeconds) * time.Second
 
+	score := quiz(problems, timeLimit)
+	fmt.Printf("\nFinal score: %d/%d.", score, len(problems))
+}
+
+func quiz(problems []Problem, timeLimit time.Duration) int {
 	correctAnswers := 0
-	stdinReader := bufio.NewReader(os.Stdin)
-	for index, problem := range problems {
-		fmt.Printf("Problem #%d:\t%s\t=\t", index, problem.Question)
-		userSolution, err := stdinReader.ReadString('\n')
-		if err != nil {
-			panic(err)
-		}
+	solutionsChan := make(chan bool)
+	doneChan := make(chan bool)
 
-		userSolution = strings.TrimSpace(userSolution)
-		if userSolution == problem.Solution {
-			correctAnswers = correctAnswers + 1
-			fmt.Println("Good")
-		} else {
-			fmt.Println("Mistake")
+	fmt.Scanf("\n")
+	go getSolutions(problems, solutionsChan, doneChan)
+	quizTimer := time.NewTimer(timeLimit)
+	for {
+		select {
+		case solution := <-solutionsChan:
+			if solution {
+				correctAnswers++
+			}
+		case <-doneChan:
+			fmt.Println("\nOut of problems!")
+			return correctAnswers
+		case <-quizTimer.C:
+			fmt.Println("\nTime's run out!")
+			return correctAnswers
 		}
 	}
 
-	fmt.Printf("\nFinal score: %d/%d.", correctAnswers, len(problems))
+	return correctAnswers
+}
+func getSolutions(problems []Problem, solutions chan<- bool, done chan<- bool) {
+	for i, problem := range problems {
+		fmt.Printf("Problem #%d: %s\t=\t", i, problem.Question)
+
+		var userSolution string
+		fmt.Scanf("%s\n", &userSolution)
+
+		userSolution = strings.TrimSpace(userSolution)
+		if userSolution == problem.Solution {
+			solutions <- true
+		} else {
+			solutions <- false
+		}
+	}
+	done <- true
 }
 
 func getProblemsFromFile(problemsFilePath string) []Problem {
@@ -50,7 +77,7 @@ func getProblemsFromFile(problemsFilePath string) []Problem {
 	if err != nil {
 		panic(err)
 	}
-	csvReader := csv.NewReader(bufio.NewReader(problemsFile))
+	csvReader := csv.NewReader(problemsFile)
 	for {
 		line, err := csvReader.Read()
 		if err == io.EOF {
